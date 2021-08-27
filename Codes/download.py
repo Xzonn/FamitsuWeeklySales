@@ -8,6 +8,8 @@ import re
 import requests
 from bs4 import BeautifulSoup
 
+requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS = 'ALL:@SECLEVEL=1'
+
 def try_write(path, text):
   paths = path.split("/")
   sub_path = ""
@@ -32,10 +34,8 @@ text = download.content.decode("utf-8")
 parser = BeautifulSoup(text, "html.parser")
 file_name = f"Html/Temp/{datetime.date.today()}.html"
 sub_name = ""
-print(file_name)
 try:
   date = parser.find(class_="heading__sub-text-body").get_text()
-  print(date)
   y1, m1, d1, y2, m2, d2 = [int(i) for i in re.search(r"^(\d+)年(\d+)月(\d+)日～(\d+)年(\d+)月(\d+)日$", date).groups()]
   sub_name = f"{y1}/{m1}/{y1:04d}-{m1:02d}-{d1:02d}__{y2:04d}-{m2:02d}-{d2:02d}"
   file_name = f"Html/{sub_name}.html"
