@@ -37,7 +37,7 @@ sub_name = ""
 try:
   date = parser.find(class_="heading__sub-text-body").get_text()
   y1, m1, d1, y2, m2, d2 = [int(i) for i in re.search(r"^(\d+)年(\d+)月(\d+)日～(\d+)年(\d+)月(\d+)日$", date).groups()]
-  sub_name = f"{y1}/{m1}/{y1:04d}-{m1:02d}-{d1:02d}__{y2:04d}-{m2:02d}-{d2:02d}"
+  sub_name = f"{y1:04d}/{m1:02d}/{y1:04d}-{m1:02d}-{d1:02d}__{y2:04d}-{m2:02d}-{d2:02d}"
   file_name = f"Html/{sub_name}.html"
 except Exception as e:
   print(f"Error: {e}")

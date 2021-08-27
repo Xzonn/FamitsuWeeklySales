@@ -1,0 +1,9 @@
+defaults:
+  - scope:
+      path: "Markdown"
+    values:
+      is_markdown: true
+exclude:
+  - Codes/
+  - Json/
+markdown: GFM
