@@ -6,4 +6,5 @@ defaults:
 exclude:
   - Codes/
   - Json/
+lang: ja
 markdown: GFM
