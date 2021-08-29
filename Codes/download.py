@@ -11,8 +11,6 @@ from bs4 import BeautifulSoup
 requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS = 'ALL:@SECLEVEL=1'
 
 def try_write(path, text):
-  if os.path.exists(path):
-    return False
   paths = path.split("/")
   sub_path = ""
   for i in paths[:-1]:
@@ -24,15 +22,23 @@ def try_write(path, text):
   return True
 
 def parse_num(text):
+  if not text:
+    return 0
   try:
-    parse = re.search(r"([\d,\.]+)", text).groups()[0]
-    parse = parse.replace(",", "")
+    parse = re.search(r"([\d,万億兆\.]+)", text).groups()[0]
+    parse = re.sub(r"[,万億兆]", "", parse)
     return json.loads(parse)
   except Exception as e:
-    print(f"Error: {e}")
+    print(f"Error: {e}\n  on parse_num")
     return 0
 
-sub_name = ""
+def parse_date(date):
+  return tuple((int(i) if i else None) for i in re.search(r"^(?:(\d+)年)?(\d+)月(\d+)日[~〜～](?:(\d+)年)?(\d+)月(\d+)日$", date).groups())
+
+def sub_name(date):
+  y1, m1, d1, y2, m2, d2 = date
+  return f"{y1 or y2:04d}/{m1:02d}/{y1 or y2:04d}-{m1:02d}-{d1:02d}__{y2 or y1:04d}-{m2:02d}-{d2:02d}"
+
 def download_html(url, proxies={}):
   download = requests.get(url, proxies=proxies)
   text = download.content.decode("utf-8")
@@ -41,29 +47,94 @@ def download_html(url, proxies={}):
     date = parser.find(class_="heading__sub-text-body").get_text()
     re.search(r"^(\d+)年(\d+)月(\d+)日～(\d+)年(\d+)月(\d+)日$", date).groups()
   except Exception as e:
-    print(f"Error: {e}")
-    try_write(f"Html/Temp/{datetime.date.today()}.html", text)
+    try:
+      date = parser.find(class_="article-body__contents").get_text()
+      re.search(r"(?:(\d+)年)?(\d+)月(\d+)日[~〜～](?:(\d+)年)?(\d+)月(\d+)日", date).groups()
+    except Exception as e:
+      print(f"Error: {e}\n  on download_html")
+      try_write(f"Html_Temp/{datetime.datetime.now().strftime(f'%Y%m%d%H%M%S%f')}.html", text)
 
   return text
 
-def parse_markdown(text):
-  parser = BeautifulSoup(text, "html.parser")
-  date = parser.find(class_="heading__sub-text-body").get_text()
-  y1, m1, d1, y2, m2, d2 = [int(i) for i in re.search(r"^(\d+)年(\d+)月(\d+)日～(\d+)年(\d+)月(\d+)日$", date).groups()]
-  sub_name = f"{y1:04d}/{m1:02d}/{y1:04d}-{m1:02d}-{d1:02d}__{y2:04d}-{m2:02d}-{d2:02d}"
-
-  cards = parser.find_all(class_="card-game-sale-rank")
-  data = []
+def json_to_markdown(data):
+  if "software" in data:
+    software = data["software"]
+  else:
+    software = []
+  if "hardware" in data:
+    hardware = data["hardware"]
+  else:
+    hardware = []
+  y1, m1, d1, y2, m2, d2 = data["date"]
   now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).isoformat(timespec = "seconds")
   markdown_content = f"""---
-from: {y1:04d}-{m1:02d}-{d1:02d}
-to: {y2:04d}-{m2:02d}-{d2:02d}
+from: {y1 or y2:04d}-{m1:02d}-{d1:02d}
+to: {y2 or y1:04d}-{m2:02d}-{d2:02d}
+top_30: {len(software) > 20}
+top_10: {bool(hardware)}
 last_modified_at: {now}
 ---
-# Famitsu Sales: {y1:04d}-{m1:02d}-{d1:02d} ~ {y2:04d}-{m2:02d}-{d2:02d}
+# Famitsu Sales: {y1 or y2:04d}-{m1:02d}-{d1:02d} ~ {y2 or y1:04d}-{m2:02d}-{d2:02d}
+"""
+  if software:
+    markdown_content += """## Software
 | Rank | Platform | Title | Publisher | Sales | Total | Rate | New |
 | -: | -- | -- | -- | -: | -: | -: | -- |
 """
+    for soft in software:
+      markdown_content += "| {rank} | {platform} | {title} | {publisher} | {num_past:,} | {num_total:,} | {sales_meter} | {new} |\n".format(new = soft["is_new"] and "**New**" or "", **soft)
+    markdown_content += "\n"
+  if hardware:
+    markdown_content += """## Hardware
+| Rank | Platform | Sales | Total |
+| -: | -- | -: | -: |
+"""
+    for hard in hardware:
+      markdown_content += "| {rank} | {platform} | {num_past:,} | {num_total:,} |\n".format(**hard)
+    markdown_content += "\n"
+
+  return markdown_content.strip()
+
+def save_markdown(data):
+  file_name = f"Json/{sub_name(data['date'])}.json"
+  try:
+    if os.path.exists(file_name):
+      with open(file_name, "r", -1, "utf-8") as json_file:
+        old_data = json.load(json_file)
+        if old_data == data:
+          return False
+        else:
+          if isinstance(old_data, list):
+            old_software = old_data
+          elif "software" in old_data:
+            old_software = old_data["software"]
+          else:
+            old_software = []
+          if (not "software" in data) or (len(data["software"]) < len(old_software)):
+            data.update({
+              "software": old_software
+            })
+  except Exception as e:
+    print(f"Error: {e}\n  on save_markdown")
+  try_write(file_name, json.dumps(data, ensure_ascii = False))
+
+  file_name = f"Markdown/{sub_name(data['date'])}.md"
+  try_write(file_name, json_to_markdown(data))
+  return True
+
+def save_html(text, path, date):
+  file_name = f"{path}/{sub_name(date)}.html"
+  try_write(file_name, text)
+
+def download_software():
+  return download_html("https://www.famitsu.com/ranking/game-sales/")
+
+def parse_software(text):
+  parser = BeautifulSoup(text, "html.parser")
+  date = parse_date(parser.find(class_="heading__sub-text-body").get_text())
+
+  cards = parser.find_all(class_="card-game-sale-rank")
+  software = []
   for card in cards:
     info = {
       "rank": parse_num(card.find(class_="icon-ranking").get_text()),
@@ -75,27 +146,93 @@ last_modified_at: {now}
       "num_total": parse_num(card.find(class_="card-game-sale-rank__sales-num-total").get_text()),
       "sales_meter": card.find(class_="card-game-sale-rank__sales-meter-num").get_text()
     }
-    data.append(info)
-    markdown_content += "| {rank} | {platform} | {title} | {publisher} | {num_past:,} | {num_total:,} | {sales_meter} | {new} |\n".format(new = info["is_new"] and "**New**" or "",**info)
+    software.append(info)
+  return {
+    "software": software,
+    "date": date
+  }
 
-  file_name = f"Json/{sub_name}.json"
+def download_hardware():
+  download = requests.get(r"https://www.famitsu.com/search/?type=article&q=%E3%82%BD%E3%83%95%E3%83%88+%E3%83%8F%E3%83%BC%E3%83%89+%E9%80%B1%E9%96%93%E8%B2%A9%E5%A3%B2%E6%95%B0")
+  text = download.content.decode("utf-8")
+  parser = BeautifulSoup(text, "html.parser")
   try:
-    if os.path.exists(file_name):
-      with open(file_name, "r", -1, "utf-8") as json_file:
-        old_result = json.load(json_file)
-        if old_result == data:
-          return False
+    link = parser.find(class_="card__title").find("a").get("href")
+    if link.startswith("//"):
+      link = "https:" + link
+    elif link.startswith("/"):
+      link = "https://www.famitsu.com" + link
+    elif not link.find("//"):
+      link = "https://www.famitsu.com/search/" + link
   except Exception as e:
-    print(f"Error: {e}")
-  try_write(file_name, json.dumps(data, ensure_ascii=False))
+    print(f"Error: {e}\n  on download_hardware")
+    return False
+  return download_html(link)
 
-  file_name = f"Html/{sub_name}.html"
-  try_write(file_name, f"---\n---\n{text}")
+def parse_hardware(text):
+  parser = BeautifulSoup(text, "html.parser")
+  body = parser.find(class_="article-body__contents").get_text("\n")
+  date = parse_date(re.search(r"(?<=集計期間は)(?:(\d+)年)?(\d+)月(\d+)日[~〜～](?:(\d+)年)?(\d+)月(\d+)日", body)[0])
+  if not (date[0] or date[3]):
+    year = parse_num(parser.find("time").get("datetime")[0:4])
+    date = (year, date[1], date[2], None, date[4], date[5])
 
-  file_name = f"Markdown/{sub_name}.md"
-  try_write(file_name, markdown_content)
-  return True
+  software_start = re.search(r"^\s*ソフト.*本数.*$\s*", body, re.M).end()
+  software_all = re.findall(r"^\s*(\d+)位(?:（(.*?)）)?\s*([^　]*)　+(.*)\s*([\d万億兆]+)本\s*(?:（累計(?:販売本数)?：?\s*([\d万億兆]+)本）\s*)?／\s*(.*)\s*／\s*\d+年\d+月\d+日(?:発売)?\s*$", body[software_start : ], re.M)
+  software = []
+  for soft in software_all:
+    info = {
+      "rank": parse_num(soft[0]),
+      "is_new": soft[1] == "初登場",
+      "platform": soft[2],
+      "title": soft[3],
+      "publisher": soft[6],
+      "num_past": parse_num(soft[4]),
+      "num_total": parse_num(soft[5]),
+      "sales_meter": ""
+    }
+    if (not info["num_total"]):
+      if info["is_new"]:
+        info["num_total"] = info["num_past"]
+      else:
+        info["num_total"] = -1
+    software.append(info)
+
+  hardware_start = re.search(r"^\s*ハード.*台数\s*$\s*", body, re.M).end()
+  hardware_all = re.findall(r"^\s*(.*?)\s*／\s*([\d万億兆]+)台(?:\s*（累計(?:販売台数)?：?\s*([\d万億兆]+)台）\s*)?$", body[hardware_start : ], re.M)
+  hardware_all.sort(key = lambda x: parse_num(x[1]), reverse = True)
+  hardware = []
+  for (i, hard) in enumerate(hardware_all):
+    info = {
+      "rank": i + 1,
+      "platform": hard[0],
+      "num_past": parse_num(hard[1]),
+      "num_total": parse_num(hard[2])
+    }
+    if (not info["num_total"]):
+      info["num_total"] = -1
+    hardware.append(info)
+  return {
+    "software": software,
+    "hardware": hardware,
+    "date": date
+  }
 
 if __name__ == "__main__":
-  text = download_html("https://www.famitsu.com/ranking/game-sales/")
-  parse_markdown(text)
+  software_text = download_software()
+  software = parse_software(software_text)
+  hardware_text = download_hardware()
+  hardware = parse_hardware(hardware_text)
+  if sub_name(software["date"]) == sub_name(hardware["date"]):
+    if save_markdown({
+      "software": software["software"],
+      "hardware": hardware["hardware"],
+      "date": software["date"]
+    }):
+      save_html(software_text, "Html_Top30", software["date"])
+      save_html(hardware_text, "Html_Top10", hardware["date"])
+  else:
+    if save_markdown(software):
+      save_html(software_text, "Html_Top30", software["date"])
+    if save_markdown(hardware):
+      save_html(hardware_text, "Html_Top10", hardware["date"])

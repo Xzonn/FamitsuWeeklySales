@@ -1,8 +1,8 @@
 ---
 layout: default
 ---
-<div class="float-sm-right text-right text-gray">
-  <div><a href="{{ site.github.repository_url }}/raw/master{{ page.url | split: "Markdown/" | join: "Html/" }}">Html archive</a></div>{% if page.last_modified_at %}
+{% if page.last_modified_at %}<div class="float-sm-right text-right text-gray">
+  <div>Archives: {% if page.top_30 %}<a href="{{ site.github.repository_url }}/raw/master{{ page.url | split: "Markdown/" | join: "Html_Top30/" }}">Top 30</a>{% if page.top_10 %} &#124; {% endif %}{% endif %}{% if page.top_10 %}<a href="{{ site.github.repository_url }}/raw/master{{ page.url | split: "Markdown/" | join: "Html_Top10/" }}">Top 10</a>{% endif %}</div>{% if page.last_modified_at %}
   <div>Archived at <time datetime="{{ page.last_modified_at | date: "%FT%H:%M:%S%z" }}">{{ page.last_modified_at }}</time></div>{% endif %}
 </div>
-{{ content }}
+{% endif %}{{ content }}

@@ -5,7 +5,7 @@ permalink: /
 # FamitsuWeeklySales
 This repository provides weekly sales data collected from [Famitsu's website](https://www.famitsu.com/ranking/game-sales/). It is updated automatically by GitHub Actions.
 
-In normal, Famitsu will update their data on 02:00 (UTC) every Friday. But in case of something going wrong, this repository will be updated on 12:00 (UTC) every Thuesday and Friday.
+In normal, Famitsu will update their data on 02:00 (UTC) every Friday. But in case of something going wrong, this repository will be updated on 15:00 (UTC, 24:00 JST) every Thuesday and Friday.
 
 Historical data (before 2021-08-16) was be updated from [Wayback Machine](https://web.archive.org/).
 
@@ -17,4 +17,4 @@ Historical data (before 2021-08-16) was be updated from [Wayback Machine](https:
 - [{{ file.from }} ~ {{ file.to }}]({{ file.url | relative_url }}) (W{{ file.from | date: "%W" }}){% assign last_month = this_month %}{% assign last_year = this_year %}{% endfor %}
 
 ## Links
-- [Gematsu](https://www.gematsu.com/tag/famitsu-sales), archives from April 22, 2019
+- [Gematsu](https://www.gematsu.com/tag/famitsu-sales), archives from 2019-04-22
