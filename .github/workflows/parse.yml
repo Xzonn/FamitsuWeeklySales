@@ -20,9 +20,17 @@ jobs:
     - name: Download and Parse
       run: |
         python Codes/download.py
-    - name: Save titles
+    - name: Save results
       run: |
         git add -A
         git -c user.name=GitHub -c user.email=noreply@github.com commit \
           -m "From GitHub Actions build ${GITHUB_RUN_NUMBER}"
         git push
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Archive pages
+      run: |
+        wget "https://web.archive.org/save/https://www.famitsu.com/ranking/game-sales/"
+        wget "https://web.archive.org/save/https://www.famitsu.com/ranking/game-sales/last_week/"
+        wget "https://web.archive.org/save/https://web.archive.org/save/"

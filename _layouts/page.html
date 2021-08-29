@@ -1,0 +1,8 @@
+---
+layout: default
+---
+<div class="float-sm-right text-right text-gray">
+  <div><a href="{{ site.github.repository_url }}/raw/master{{ page.url | split: "Markdown/" | join: "Html/" }}">Html archive</a></div>{% if page.last_modified_at %}
+  <div>Archived at <time datetime="{{ page.last_modified_at | date: "%FT%H:%M:%S%z" }}">{{ page.last_modified_at }}</time></div>{% endif %}
+</div>
+{{ content }}

@@ -3,8 +3,12 @@ defaults:
       path: "Markdown"
     values:
       is_markdown: true
+      layout: page
 exclude:
   - Codes/
+  - Html/
   - Json/
 lang: ja
 markdown: GFM
+plugins:
+  - jekyll-titles-from-headings
