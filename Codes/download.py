@@ -51,8 +51,12 @@ def download_html(url, proxies={}):
       date = parser.find(class_="article-body__contents").get_text()
       re.search(r"(?:(\d+)年)?(\d+)月(\d+)日[~〜～](?:(\d+)年)?(\d+)月(\d+)日", date).groups()
     except Exception as e:
-      print(f"Error: {e}\n  on download_html")
+      print(f"Error: {e}\n  on download_html when parsing date")
       try_write(f"Html_Temp/{datetime.datetime.now().strftime(f'%Y%m%d%H%M%S%f')}.html", text)
+  try:
+    archive = requests.get(r"https://web.archive.org/save/{url}", proxies=proxies, timeout=60)
+  except Exception as e:
+      print(f"Error: {e}\n  on download_html when archiving")
 
   return text
 
@@ -110,10 +114,20 @@ def save_markdown(data):
             old_software = old_data["software"]
           else:
             old_software = []
-          if (not "software" in data) or (len(data["software"]) < len(old_software)):
+          if "hardware" in old_data:
+            old_hardware = old_data["hardware"]
+          else:
+            old_hardware = []
+          if old_software and ((not "software" in data) or (len(data["software"]) < len(old_software))):
             data.update({
               "software": old_software
             })
+          if old_hardware and ((not "hardware" in data) or (len(data["hardware"]) < len(old_hardware))):
+            data.update({
+              "hardware": old_hardware
+            })
+          if old_data["software"] == data["software"] and old_data["hardware"] == data["hardware"]:
+            return False
   except Exception as e:
     print(f"Error: {e}\n  on save_markdown")
   try_write(file_name, json.dumps(data, ensure_ascii = False))

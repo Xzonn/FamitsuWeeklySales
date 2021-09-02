@@ -30,8 +30,11 @@ jobs:
   archive:
     runs-on: ubuntu-latest
     steps:
-    - name: Archive pages
+    - name: Archive last week
       run: |
-        wget "https://web.archive.org/save/https://www.famitsu.com/ranking/game-sales/"
         wget "https://web.archive.org/save/https://www.famitsu.com/ranking/game-sales/last_week/"
-        wget "https://web.archive.org/save/https://web.archive.org/save/"
+      continue-on-error: true
+    - name: Archive the week before last week
+      run: |
+        wget "https://web.archive.org/save/https://www.famitsu.com/ranking/game-sales/before_last/"
+      continue-on-error: true
