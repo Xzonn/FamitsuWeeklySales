@@ -29,7 +29,7 @@ def try_archive(url, proxies, headers):
   try:
     archive = requests.get(f"https://web.archive.org/save/{url}", proxies=proxies, headers=headers, timeout=80)
     if not archive.ok:
-      print(f"Failed: {archive.status_code} {archive.reason}\n  on `try_archive`.")
+      print(f"Archived failed: {url}\n  {archive.status_code} {archive.reason}\n  on `try_archive`.")
       return False
   except Exception as e:
     print(f"Error: {e}\n  on `try_archive`.")
