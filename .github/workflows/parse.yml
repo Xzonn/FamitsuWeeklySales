@@ -2,7 +2,7 @@ name: Publish
 
 on:
   schedule:
-    - cron:  '0 15 * * 4,5'
+    - cron: '0 15 * * 4,5'
 
 jobs:
   publish:
@@ -23,18 +23,8 @@ jobs:
       continue-on-error: true
     - name: Save results
       run: |
+        TODAY=$(date +"%FT%H:%M:%S%z")
         git add -A
         git -c user.name=GitHub -c user.email=noreply@github.com commit \
-          -m "From GitHub Actions build ${GITHUB_RUN_NUMBER}"
+          -m "Update: ${TODAY}"
         git push
-  archive:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Archive last week
-      run: |
-        wget "https://web.archive.org/save/https://www.famitsu.com/ranking/game-sales/last_week/"
-      continue-on-error: true
-    - name: Archive the week before last week
-      run: |
-        wget "https://web.archive.org/save/https://www.famitsu.com/ranking/game-sales/before_last/"
-      continue-on-error: true

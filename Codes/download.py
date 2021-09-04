@@ -6,6 +6,7 @@ import json
 import os
 import re
 import requests
+import time
 from bs4 import BeautifulSoup
 
 requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS = 'ALL:@SECLEVEL=1'
@@ -19,6 +20,21 @@ def try_write(path, text):
       os.mkdir(sub_path)
   with open(path, "w", -1, "utf-8") as f:
     f.write(text)
+  print(f"Saved successfully: {path}\n  on `try_write`.")
+  return True
+
+def try_archive(url, proxies, headers):
+  print("Sleep 10 seconds\n  on `try_archive`.")
+  time.sleep(10)
+  try:
+    archive = requests.get(f"https://web.archive.org/save/{url}", proxies=proxies, headers=headers, timeout=80)
+    if not archive.ok:
+      print(f"Failed: {archive.status_code} {archive.reason}\n  on `try_archive`.")
+      return False
+  except Exception as e:
+    print(f"Error: {e}\n  on `try_archive`.")
+    return False
+  print(f"Archived successfully: {url}\n  {archive.status_code} {archive.reason}\n  on `try_archive`.")
   return True
 
 def parse_num(text):
@@ -29,7 +45,7 @@ def parse_num(text):
     parse = re.sub(r"[,万億兆]", "", parse)
     return json.loads(parse)
   except Exception as e:
-    print(f"Error: {e}\n  on parse_num")
+    print(f"Error: {e}\n  on `parse_num`.")
     return 0
 
 def parse_date(date):
@@ -39,8 +55,8 @@ def sub_name(date):
   y1, m1, d1, y2, m2, d2 = date
   return f"{y1 or y2:04d}/{m1:02d}/{y1 or y2:04d}-{m1:02d}-{d1:02d}__{y2 or y1:04d}-{m2:02d}-{d2:02d}"
 
-def download_html(url, proxies={}):
-  download = requests.get(url, proxies=proxies)
+def download_html(url, proxies={}, headers={}):
+  download = requests.get(url, proxies=proxies, headers=headers)
   text = download.content.decode("utf-8")
   parser = BeautifulSoup(text, "html.parser")
   try:
@@ -50,13 +66,13 @@ def download_html(url, proxies={}):
     try:
       date = parser.find(class_="article-body__contents").get_text()
       re.search(r"(?:(\d+)年)?(\d+)月(\d+)日[~〜～](?:(\d+)年)?(\d+)月(\d+)日", date).groups()
+      print(f"Downloaded and parsed successfully: {url}\n  on `download_html`.")
     except Exception as e:
-      print(f"Error: {e}\n  on download_html when parsing date")
+      print(f"Downloaded successfully: {url}\n  on `download_html`.")
+      print(f"Error: {e}\n  on `download_html` when parsing date.")
       try_write(f"Html_Temp/{datetime.datetime.now().strftime(f'%Y%m%d%H%M%S%f')}.html", text)
-  try:
-    archive = requests.get(r"https://web.archive.org/save/{url}", proxies=proxies, timeout=60)
-  except Exception as e:
-      print(f"Error: {e}\n  on download_html when archiving")
+
+  try_archive(url, proxies, headers)
 
   return text
 
@@ -129,7 +145,7 @@ def save_markdown(data):
           if old_data["software"] == data["software"] and old_data["hardware"] == data["hardware"]:
             return False
   except Exception as e:
-    print(f"Error: {e}\n  on save_markdown")
+    print(f"Error: {e}\n  on `save_markdown`.")
   try_write(file_name, json.dumps(data, ensure_ascii = False))
 
   file_name = f"Markdown/{sub_name(data['date'])}.md"
@@ -140,8 +156,10 @@ def save_html(text, path, date):
   file_name = f"{path}/{sub_name(date)}.html"
   try_write(file_name, text)
 
-def download_software():
-  return download_html("https://www.famitsu.com/ranking/game-sales/")
+def download_software(proxies={}, headers={}):
+  try_archive("https://www.famitsu.com/ranking/game-sales/last_week/", proxies, headers)
+  try_archive("https://www.famitsu.com/ranking/game-sales/before_last/", proxies, headers)
+  return download_html("https://www.famitsu.com/ranking/game-sales/", proxies, headers)
 
 def parse_software(text):
   parser = BeautifulSoup(text, "html.parser")
@@ -166,8 +184,8 @@ def parse_software(text):
     "date": date
   }
 
-def download_hardware():
-  download = requests.get(r"https://www.famitsu.com/search/?type=article&q=%E3%82%BD%E3%83%95%E3%83%88+%E3%83%8F%E3%83%BC%E3%83%89+%E9%80%B1%E9%96%93%E8%B2%A9%E5%A3%B2%E6%95%B0")
+def download_hardware(proxies={}, headers={}):
+  download = requests.get(r"https://www.famitsu.com/search/?type=article&q=%E3%82%BD%E3%83%95%E3%83%88+%E3%83%8F%E3%83%BC%E3%83%89+%E9%80%B1%E9%96%93%E8%B2%A9%E5%A3%B2%E6%95%B0", proxies=proxies, headers=headers)
   text = download.content.decode("utf-8")
   parser = BeautifulSoup(text, "html.parser")
   try:
@@ -179,9 +197,9 @@ def download_hardware():
     elif not link.find("//"):
       link = "https://www.famitsu.com/search/" + link
   except Exception as e:
-    print(f"Error: {e}\n  on download_hardware")
+    print(f"Error: {e}\n  on `download_hardware`.")
     return False
-  return download_html(link)
+  return download_html(link, proxies, headers)
 
 def parse_hardware(text):
   parser = BeautifulSoup(text, "html.parser")
@@ -233,9 +251,30 @@ def parse_hardware(text):
   }
 
 if __name__ == "__main__":
-  software_text = download_software()
+  headers = {
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.0.0 Safari/537.36 XzonnArchive/0.1"
+  }
+
+  # Test if proxies are needed
+  proxies = {}
+  try:
+    google = requests.get(r"https://www.google.com/", headers=headers, timeout=5)
+    if not google.ok:
+      proxies = {
+        "http": "http://127.0.0.1:10809/",
+        "https": "http://127.0.0.1:10809/"
+      }
+      print("Proxies are needed")
+  except Exception as e:
+    proxies = {
+      "http": "http://127.0.0.1:10809/",
+      "https": "http://127.0.0.1:10809/"
+    }
+    print("Proxies are needed")
+
+  software_text = download_software(proxies, headers)
   software = parse_software(software_text)
-  hardware_text = download_hardware()
+  hardware_text = download_hardware(proxies, headers)
   hardware = parse_hardware(hardware_text)
   if sub_name(software["date"]) == sub_name(hardware["date"]):
     if save_markdown({
