@@ -25,17 +25,27 @@ def try_write(path, text):
 
 def try_archive(url, proxies, headers):
   print("Sleep 10 seconds\n  on `try_archive`.")
-  time.sleep(10)
-  try:
-    archive = requests.get(f"https://web.archive.org/save/{url}", proxies=proxies, headers=headers, timeout=80)
-    if not archive.ok:
-      print(f"Archived failed: {url}\n  {archive.status_code} {archive.reason}\n  on `try_archive`.")
-      return False
-  except Exception as e:
-    print(f"Error: {e}\n  on `try_archive`.")
-    return False
-  print(f"Archived successfully: {url}\n  {archive.status_code} {archive.reason}\n  on `try_archive`.")
-  return True
+  try_archive_time = 10
+  while try_archive_time:
+    time.sleep(110 - 10 * try_archive_time)
+    try:
+      archive = requests.get(f"https://web.archive.org/save/{url}", proxies=proxies, headers=headers, timeout=80)
+      if not archive.ok:
+        print(f"Archived failed: {url}\n  {archive.status_code} {archive.reason}\n  on `try_archive`.")
+        try_archive_time -= 1
+        if try_archive_time == 0:
+          return False
+        else:
+          continue
+    except Exception as e:
+      print(f"Error: {e}\n  on `try_archive`.")
+      try_archive_time -= 1
+      if try_archive_time == 0:
+        return False
+      else:
+        continue
+    print(f"Archived successfully: {url}\n  {archive.status_code} {archive.reason}\n  on `try_archive`.")
+    return True
 
 def parse_num(text):
   if not text:
