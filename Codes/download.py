@@ -72,6 +72,7 @@ def download_html(url, proxies={}, headers={}):
   try:
     date = parser.find(class_="heading__sub-text-body").get_text()
     re.search(r"^(\d+)年(\d+)月(\d+)日～(\d+)年(\d+)月(\d+)日$", date).groups()
+    print(f"Downloaded and parsed successfully: {url}\n  on `download_html`.")
   except Exception as e:
     try:
       date = parser.find(class_="article-body__contents").get_text()

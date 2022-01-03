@@ -28,3 +28,4 @@ jobs:
         git -c user.name=GitHub -c user.email=noreply@github.com commit \
           -m "Update: ${TODAY}"
         git push
+      continue-on-error: true
