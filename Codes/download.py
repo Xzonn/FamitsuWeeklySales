@@ -153,7 +153,7 @@ def save_markdown(data):
             data.update({
               "hardware": old_hardware
             })
-          if old_data["software"] == data["software"] and old_data["hardware"] == data["hardware"]:
+          if old_data["software"] == data["software"] and ((not "hardware" in old_data) or (old_data["hardware"] == data["hardware"])):
             return False
   except Exception as e:
     print(f"Error: {e}\n  on `save_markdown`.")
@@ -168,8 +168,6 @@ def save_html(text, path, date):
   try_write(file_name, text)
 
 def download_software(proxies={}, headers={}):
-  try_archive("https://www.famitsu.com/ranking/game-sales/last_week/", proxies, headers)
-  try_archive("https://www.famitsu.com/ranking/game-sales/before_last/", proxies, headers)
   return download_html("https://www.famitsu.com/ranking/game-sales/", proxies, headers)
 
 def parse_software(text):
@@ -300,3 +298,10 @@ if __name__ == "__main__":
       save_html(software_text, "Html_Top30", software["date"])
     if save_markdown(hardware):
       save_html(hardware_text, "Html_Top10", hardware["date"])
+
+  week_urls = ["https://www.famitsu.com/ranking/game-sales/last_week/", "https://www.famitsu.com/ranking/game-sales/before_last/"]
+  for week_url in week_urls:
+    week_text = download_html(week_url, proxies, headers)
+    week = parse_software(week_text)
+    if save_markdown(week):
+      save_html(week_text, "Html_Top30", week["date"])

@@ -7,7 +7,7 @@ This repository provides weekly sales data collected from [Famitsu's website](ht
 
 In normal, Famitsu will update their data on 02:00 (UTC) every Friday. But in case of something going wrong, this repository will be updated on 15:00 (UTC, 24:00 JST) every Thursday and Friday.
 
-Historical data (before 2021-08-16) was be updated from [Wayback Machine](https://web.archive.org/).
+Historical data (before 2021-08-16) was updated from [Wayback Machine](https://web.archive.org/).
 
 ## List
 * [Latest]({{ "latest.html" | relative_url }})
