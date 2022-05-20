@@ -1,4 +1,5 @@
 _site/
 __pycache__/
+.jekyll-cache/
 .vscode/
 news/

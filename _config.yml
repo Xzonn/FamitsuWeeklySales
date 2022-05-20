@@ -11,4 +11,5 @@ exclude:
 lang: ja
 markdown: GFM
 plugins:
+  - jekyll-sitemap
   - jekyll-titles-from-headings
