@@ -6,7 +6,8 @@ defaults:
       layout: page
 exclude:
   - Codes/
-  - Html/
+  - Html_Top10/
+  - Html_Top30/
   - Json/
 lang: ja
 markdown: GFM
