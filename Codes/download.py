@@ -79,13 +79,9 @@ def try_archive(url: str, proxies: dict[str, str] = {}, headers: dict[str, str] 
 def parse_num(text: str) -> int | float:
   if not text:
     return 0
-  try:
-    parse = re.search(r"([\d,万億兆\.]+)", text).groups()[0]
-    parse = re.sub(r"[,万億兆]", "", parse)
-    return json.loads(parse)
-  except Exception as e:
-    print(f"Error: {e}\n  on `parse_num`.")
-    return 0
+  parse = re.search(r"([\d,万億兆\.]+)", text).group().replace(",", "")
+  units = {"": 1, "万": 10000, "億": 100000000, "兆": 1000000000000}
+  return sum(json.loads(number) * units[unit] for number, unit in re.findall(r"(\d+(?:\.\d+)?)([万億兆]?)", parse))
 
 
 def parse_date(date: str) -> tuple[int | None, int, int, int | None, int, int]:
@@ -105,19 +101,13 @@ def download_html(url: str, proxies: dict[str, str] = {}, headers: dict[str, str
   text = download.content.decode("utf-8")
   parser = BeautifulSoup(text, "html.parser")
   try:
-    body_class = re.search(r"ArticleDetailBody_articleBody_[_a-zA-Z0-9]+", text).group()
-    body = parser.find(class_=body_class).get_text("\n")
-    re.search(r"^(\d+)年(\d+)月(\d+)日～(\d+)年(\d+)月(\d+)日$", body).groups()
+    date = re.search(r"(?:(\d+)年)?(\d+)月(\d+)日[~〜～](?:(\d+)年)?(\d+)月(\d+)日", parser.get_text()).group()
+    parse_date(date)
     print(f"Downloaded and parsed successfully: {url}\n  on `download_html`.")
-  except Exception:
-    try:
-      date = parser.find(class_="article-body__contents").get_text()
-      re.search(r"(?:(\d+)年)?(\d+)月(\d+)日[~〜～](?:(\d+)年)?(\d+)月(\d+)日", date).groups()
-      print(f"Downloaded and parsed successfully: {url}\n  on `download_html`.")
-    except Exception as e:
-      print(f"Downloaded successfully: {url}\n  on `download_html`.")
-      print(f"Error: {e}\n  on `download_html` when parsing date.")
-      try_write(f"Html_Temp/{datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')}.html", text)
+  except Exception as e:
+    print(f"Downloaded successfully: {url}\n  on `download_html`.")
+    print(f"Error: {e}\n  on `download_html` when parsing date.")
+    try_write(f"Html_Temp/{datetime.datetime.now().strftime('%Y%m%d%H%M%S%f')}.html", text)
 
   try_archive(url, proxies, headers)
 
@@ -211,6 +201,27 @@ def download_software(proxies:dict[str,str]={}, headers:dict[str,str]={}) -> str
 
 def parse_software(text: str) -> PageInfo:
   parser = BeautifulSoup(text, "html.parser")
+  page_data = parser.find(id="__NEXT_DATA__")
+  if page_data is not None:
+    ranking = json.loads(page_data.string)["props"]["pageProps"]["gameSalesRankingData"]
+    date = parse_date(ranking["title"])
+    start = datetime.date(date[0] or date[3], date[1], date[2])
+    end = datetime.date(date[3] or date[0], date[4], date[5])
+    software: list[Software] = []
+    for card in ranking["rankingData"]:
+      info: Software = {
+        "rank": parse_num(card["rank"]),
+        "is_new": start <= datetime.datetime.strptime(card["releaseDate"], "%Y年%m月%d日").date() <= end,
+        "platform": card["platform"],
+        "title": card["title"],
+        "publisher": card["maker"],
+        "num_past": card["salesCount"],
+        "num_total": card["totalSalesCount"],
+        "sales_meter": f"{100 - 20 * int(card['sellRate'])}%",
+      }
+      software.append(info)
+    return {"software": software, "date": date,}
+
   date = parse_date(parser.find(class_="heading__sub-text-body").get_text())
 
   cards = parser.find_all(class_="card-game-sale-rank")
@@ -237,7 +248,7 @@ def download_hardware(index: int = 0, proxies: dict[str, str] = {}, headers: dic
     headers=headers,
   )
   results = download.json()
-  first_result = results["data"][index]
+  first_result = [result for result in results["data"] if result["title"].startswith("【ソフト＆ハード週間販売数】")][index]
   article_id = first_result["id"]
   published_at = time.strptime(first_result["publishedAt"], "%Y-%m-%dT%H:%M:%S+09:00")
   link = f"https://www.famitsu.com/article/{published_at.tm_year:04d}{published_at.tm_mon:02d}/{article_id}"
@@ -246,19 +257,15 @@ def download_hardware(index: int = 0, proxies: dict[str, str] = {}, headers: dic
 
 def parse_hardware(text: str) -> PageInfo:
   parser = BeautifulSoup(text, "html.parser")
-  body_class = re.search(r"ArticleDetailBody_articleBody_[_a-zA-Z0-9]+", text).group()
-  body = parser.find(class_=body_class).get_text("\n")
-  try:
-    date = parse_date(re.search(r"(?<=集計期間は)(?:(\d+)年)?(\d+)月(\d+)日[~〜～](?:(\d+)年)?(\d+)月(\d+)日", body)[0])
-  except TypeError:
-    return {}
+  body = parser.find(class_=re.compile(r"_articleBody(?:_|$)")).get_text("\n")
+  date = parse_date(re.search(r"(?:(\d+)年)?(\d+)月(\d+)日[~〜～](?:(\d+)年)?(\d+)月(\d+)日", body)[0])
   if not (date[0] or date[3]):
-    year = parse_num(parser.find("time").get("datetime")[0:4])
+    year = parse_num(parser.find("time").get_text()[0:4])
     date = (year, date[1], date[2], None, date[4], date[5])
 
   software_start = re.search(r"^\s*ソフト.*本数.*$\s*", body, re.M).end()
   software_all = re.findall(
-    r"^\s*(\d+)位(?:（(.*?)）)?\s*([^　]*)　+(.*)\s*([\d万億兆]+)本\s*(?:（累計(?:販売本数)?：?\s*([\d万億兆]+)本）\s*)?／\s*(.*)\s*／\s*\d+年\d+月\d+日(?:発売)?\s*$",
+    r"^\s*(\d+)位(?:（(.*?)）)?\s*([^　\n]+)　+(.*?)\s+([\d,万億兆]+)本\s*(?:（累計(?:販売本数)?：?\s*([\d,万億兆]+)本）\s*)?／\s*(.*?)\s*／\s*\d+年\d+月\d+日(?:発売)?\s*$",
     body[software_start:],
     re.M,
   )
@@ -283,7 +290,7 @@ def parse_hardware(text: str) -> PageInfo:
 
   hardware_start = re.search(r"^\s*ハード.*台数\s*$\s*", body, re.M).end()
   hardware_all = re.findall(
-    r"^\s*(.*?)\s*／\s*([\d万億兆]+)台(?:\s*（累計(?:販売台数)?：?\s*([\d万億兆]+)台）\s*)?$",
+    r"^\s*(.*?)\s*／\s*([\d,万億兆]+)台(?:\s*（累計(?:販売台数)?：?\s*([\d,万億兆]+)台）\s*)?$",
     body[hardware_start:],
     re.M,
   )
@@ -337,8 +344,8 @@ if __name__ == "__main__":
       save_html(hardware_text, "Html_Top10", hardware["date"])
 
   week_urls = [
-    "https://www.famitsu.com/ranking/game-sales/last_week/",
-    "https://www.famitsu.com/ranking/game-sales/before_last/",
+    "https://www.famitsu.com/ranking/game-sales/last-week/",
+    "https://www.famitsu.com/ranking/game-sales/before-last/",
   ]
   for week_url in week_urls:
     week_text = download_html(week_url, proxies, headers)
